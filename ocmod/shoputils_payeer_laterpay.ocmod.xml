@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+	<code>shoputils_payeer_laterpay_extension_2.0-2.2</code>
+	<name> Payeer, отсроченная оплата - Shoputils.payeer 2.x Laterpay Extension</name>
+	<version>2.3</version>
+	<author>Shoputils (http://opencart.shoputils.ru)</author>
+  <link>http://opencart.shoputils.ru</link>
+
+    <file path="catalog/controller/account/order.php">
+        <operation error="log">
+            <search index="0,20"><![CDATA[$data['button_continue']]]></search>
+            <add position="before"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      $data['button_shoputils_payeer_onpay'] = $this->language->get('button_shoputils_payeer_onpay');
+      $this->load->model('payment/shoputils_payeer');
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+        <operation error="log">
+            <search><![CDATA[$this->currency->format($result['total'], $result['currency_code'], $result['currency_value']),]]></search>
+            <add position="after"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      'shoputils_payeer_onpay'  => $this->model_payment_shoputils_payeer->checkLaterpay($result['order_id']) ? $this->url->link('payment/shoputils_payeer/laterpay', sprintf('order_id=%s&order_tt=%s', $result['order_id'], $result['total'], 'SSL')) : '',
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+    </file>
+    <file path="catalog/language/english/account/order.php">
+        <operation error="skip">
+            <search><![CDATA[$_['heading_title']]]></search>
+            <add position="before"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      // Button
+      $_['button_shoputils_payeer_onpay']  = 'Onpay Online via payeer';
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+    </file>
+    <file path="catalog/language/russian/account/order.php">
+        <operation error="skip">
+            <search><![CDATA[$_['heading_title']]]></search>
+            <add position="before"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      // Button
+      $_['button_shoputils_payeer_onpay']  = 'Оплатить онлайн';
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+    </file>
+    <file path="catalog/model/checkout/order.php">
+        <operation>
+            <search><![CDATA[$message .= $language->get('text_update_footer');]]></search>
+            <add position="after"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      if ($notify) {
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+        <operation>
+            <search index="3"><![CDATA[$mail->send();]]></search>
+            <add position="after"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      }
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+    </file>
+    <file path="catalog/view/theme/*/template/account/order_list.tpl">
+        <operation error="log">
+            <search><![CDATA[<a href="<?php echo $order['href']; ?>"]]></search>
+            <add position="replace"><![CDATA[<?php if (!empty($order['shoputils_payeer_onpay'])) { ?><a rel="nofollow" onclick="location='<?php echo $order['shoputils_payeer_onpay']; ?>'" data-toggle="tooltip" title="<?php echo $button_shoputils_payeer_onpay; ?>" class="btn btn-info" ><i class="fa fa-usd"></i></a>&nbsp;&nbsp;<?php } ?><a href="<?php echo $order['href']; ?>"]]></add>
+        </operation>
+    </file>
+    <file path="catalog/controller/api/order.php">
+        <operation>
+            <search><![CDATA[$this->model_checkout_order->addOrderHistory($order_id, $this->request->post['order_status_id'], $this->request->post['comment']]]></search>
+            <add position="before"><![CDATA[
+      //Shoputils.payeer 2.x Laterpay Extension Begin
+      $this->load->language('payment/shoputils_payeer');
+      if (($this->config->get('shoputils_payeer_order_later_status_id') == $this->request->post['order_status_id']) && ($order_info['payment_code'] == 'shoputils_payeer')) {
+        $onpay_url = sprintf('%sindex.php/?route=payment/shoputils_payeer/laterpay&order_id=%s&order_tt=%s',
+                              defined('HTTPS_SERVER') ? HTTPS_SERVER : HTTP_SERVER,
+                              $order_info['order_id'],
+                              $order_info['total']
+                             );
+        $this->request->post['comment'] .= "\n" . sprintf($this->language->get('text_payeer_onpay'), $onpay_url);
+      }
+      $this->load->language('api/order');
+      //Shoputils.payeer 2.x Laterpay Extension End
+            ]]></add>
+        </operation>
+    </file>
+</modification>
+
+<!--
+Атрибуты в ocmod:
+<operation>
+    error = 'skip'  - пропускает текущую операцию если позиция не найдена
+    error = 'abort' - останавливает выполнение мода если позиция не найдена
+            В обоих случаях событие записывается в лог модификаторов
+</operation>
+<search>
+    trim  - (true|flase) $search = trim($search)
+    index - позволяет задать число искомой строки для поиска. Аналогично index в vqmod, за исключением: в vqmod - index="2" вернет 2-е совпадение 
+            в файле, в ocmod index="2" вернет 3-е совпадение в файле. Можно перечислить через запятую нужные варианты: index="1,3,7".
+            Не используй без нужды, в Opencart v2.0.0.1b поведение не прогнозируемое. Есть нюанс: в Opencart v2.0.0.1b если index="0" - будет возвращать
+            все совпадения из <search></search>. Если нужно найти только первое совпадение - используй index="0,40", где 40 - несуществующее к-во совпадений.
+</search
+<add>
+    trim     - (true|flase) $add = trim($add)
+    position - (before|after|replace) Поведение аналогично position в vqmod. Направление вставки текста (before|after) относительно искомой строки
+               или замены текста в случае repalce.
+    offset   - аналогично offset в vqmod. Смещение в строках относительно position. Как и в vqmod: 0 - первая строка
+</add>
+-->
